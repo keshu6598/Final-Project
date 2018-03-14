@@ -58,8 +58,10 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.util.ArrayList;
@@ -86,6 +88,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String ANDROID_CERT_HEADER = "X-Android-Cert";
     private static final int RESULT_LOAD_IMAGE  = 100;
     private static final int REQUEST_PERMISSION_CODE = 200;
+    public String number;
     private static final String ANDROID_PACKAGE_HEADER = "X-Android-Package";
 
     private static final String TAG = MainActivity.class.getSimpleName();
@@ -131,7 +134,11 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
 
         if (requestCode == CAMERA_IMAGE_REQUEST && resultCode == RESULT_OK) {
-            Bitmap image = (Bitmap) data.getExtras().get("data"); // Does not return optimal sized image!!
+            Bitmap image = (Bitmap) data.getExtras().get("data");
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+           image.compress(Bitmap.CompressFormat.JPEG, 99, byteArrayOutputStream);
+            InputStream in = new ByteArrayInputStream(byteArrayOutputStream.toByteArray());
+            // Does not return optimal sized image!!
             logBitmapSize(image);   //576x192
             uploadImage(image);
 
@@ -177,6 +184,7 @@ public class MainActivity extends AppCompatActivity {
                 callCloudVision(bitmap);
                 mMainImage.setImageBitmap(bitmap);
                 new SendingSMS().execute("9529118708");
+                //new SendingSMS().execute(number);
             } catch (IOException e) {
                 Log.d(TAG, "Image picking failed because " + e.getMessage());
                 Toast.makeText(this, R.string.image_picker_error, Toast.LENGTH_LONG).show();
@@ -253,8 +261,9 @@ public class MainActivity extends AppCompatActivity {
                         // Convert the bitmap to a JPEG
                         // Just in case it's a format that Android understands but Cloud Vision
                         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, byteArrayOutputStream);
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 99, byteArrayOutputStream);
                         byte[] imageBytes = byteArrayOutputStream.toByteArray();
+
 
                         // Base64 encode the JPEG
                         base64EncodedImage.encodeContent(imageBytes);
@@ -280,9 +289,10 @@ public class MainActivity extends AppCompatActivity {
 
                     BatchAnnotateImagesResponse response = annotateRequest.execute();
                     String output_letters = convertResponseToString(response);
+                    number=output_letters;
                     String urlString = "https://api.data.gov.in/resource/04cbe4b1-2f2b-4c39-a1d5-1c2e28bc0e32?format=json&api-key=579b464db66ec23bdd0000012cc883e060df473f78b71530a6592e98&limit=1&filters[pincode]=";
                     //String pincodeString = "324005"; // put the code string here
-                    String pincodeString = output_letters;
+                    String pincodeString = "247667";
                     urlString += pincodeString;
                     GET_URL = urlString;
                     Log.e(TAG, "doInBackground: url is "+ GET_URL );
@@ -324,14 +334,14 @@ public class MainActivity extends AppCompatActivity {
                         String Taluk = resultRecord.getString("taluk");
                         String District = resultRecord.getString("districtname");
                         String State = resultRecord.getString("statename");
-                        return District;
+                        return "Office : "+OfficeName+" in District "+District+" and Taluk "+Taluk+" in state "+State+"   "+output_letters;
 //                        Toast.makeText(MainActivity.this, "I got address "+District+State, Toast.LENGTH_LONG).show();
                     } catch (IOException e) {
                         e.printStackTrace();
                     } catch (JSONException e) {
                         e.printStackTrace();
                     }
-                    return output_letters;
+                    //return output_letters+"  fuck off  ";
 
                 } catch (GoogleJsonResponseException e) {
                     Log.d(TAG, "failed to make API request because " + e.getContent());
@@ -386,7 +396,7 @@ class SendingSMS extends AsyncTask<String, Object, Void> {
                 int var=(otp[i]);
                 OTP+=(Math.pow(10,i/2))*(var);
             }
-            message = "Thanks for your mail. Your post is heading to this address postal code " + Integer.toString(OTP) + " India's kamchor bank corporation";
+            message = "Thanks for your mail. Your post is heading to this address postal code " + Integer.toString(OTP) + " Kanishk Khandelwal bank corporations";
 
             //Prepare Url
             URLConnection myURLConnection=null;
