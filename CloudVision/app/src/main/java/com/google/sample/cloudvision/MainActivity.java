@@ -60,6 +60,8 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.ProtocolException;
 import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.util.ArrayList;
@@ -70,10 +72,7 @@ import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
 import java.net.HttpURLConnection;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
 import java.net.URL;
 
 
@@ -81,7 +80,6 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String USER_AGENT = "Mozilla/5.0";
 
-    private static String GET_URL = "";
     private static final String CLOUD_VISION_API_KEY = "AIzaSyCkUW-AZ4z3ri8Y5_Dla7GF9OBL1lSTYPk";
     private static final String ANDROID_CERT_HEADER = "X-Android-Cert";
     private static final int RESULT_LOAD_IMAGE  = 100;
@@ -215,123 +213,35 @@ public class MainActivity extends AppCompatActivity {
             @Override
             protected String doInBackground(Object... params) {
                 try {
-                    HttpTransport httpTransport = AndroidHttp.newCompatibleTransport();
-                    JsonFactory jsonFactory = GsonFactory.getDefaultInstance();
 
-                    VisionRequestInitializer requestInitializer =
-                            new VisionRequestInitializer(CLOUD_VISION_API_KEY) {
-                                /**
-                                 * We override this so we can inject important identifying fields into the HTTP
-                                 * headers. This enables use of a restricted cloud platform API key.
-                                 */
-                                @Override
-                                protected void initializeVisionRequest(VisionRequest<?> visionRequest)
-                                        throws IOException {
-                                    super.initializeVisionRequest(visionRequest);
+                    Vision.Images.Annotate annotateRequest = createCloudVisionApiRequest(bitmap);
 
-                                    String packageName = getPackageName();
-                                    visionRequest.getRequestHeaders().set(ANDROID_PACKAGE_HEADER, packageName);
-
-                                    String sig = PackageManagerUtils.getSignature(getPackageManager(), packageName);
-
-                                    visionRequest.getRequestHeaders().set(ANDROID_CERT_HEADER, sig);
-                                }
-                            };
-
-                    Vision.Builder builder = new Vision.Builder(httpTransport, jsonFactory, null);
-                    builder.setVisionRequestInitializer(requestInitializer);
-
-                    Vision vision = builder.build();
-
-                    BatchAnnotateImagesRequest batchAnnotateImagesRequest =
-                            new BatchAnnotateImagesRequest();
-                    batchAnnotateImagesRequest.setRequests(new ArrayList<AnnotateImageRequest>() {{
-                        AnnotateImageRequest annotateImageRequest = new AnnotateImageRequest();
-
-                        // Add the image
-                        Image base64EncodedImage = new Image();
-                        // Convert the bitmap to a JPEG
-                        // Just in case it's a format that Android understands but Cloud Vision
-                        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, byteArrayOutputStream);
-                        byte[] imageBytes = byteArrayOutputStream.toByteArray();
-
-                        // Base64 encode the JPEG
-                        base64EncodedImage.encodeContent(imageBytes);
-                        annotateImageRequest.setImage(base64EncodedImage);
-
-                        // add the features we want
-                        annotateImageRequest.setFeatures(new ArrayList<Feature>() {{
-                            Feature labelDetection = new Feature();
-                            labelDetection.setType("DOCUMENT_TEXT_DETECTION");
-                            labelDetection.setMaxResults(10);
-                            add(labelDetection);
-                        }});
-
-                        // Add the list of one thing to the request
-                        add(annotateImageRequest);
-                    }});
-
-                    Vision.Images.Annotate annotateRequest =
-                            vision.images().annotate(batchAnnotateImagesRequest);
-                    // Due to a bug: requests to Vision API containing large images fail when GZipped.
-                    annotateRequest.setDisableGZipContent(true);
                     Log.d(TAG, "created Cloud Vision request object, sending request");
 
                     BatchAnnotateImagesResponse response = annotateRequest.execute();
                     String output_letters = convertResponseToString(response);
+
+                    return output_letters;
+
+/*
+//                    String pincodeString = output_letters;
                     String urlString = "https://api.data.gov.in/resource/04cbe4b1-2f2b-4c39-a1d5-1c2e28bc0e32?format=json&api-key=579b464db66ec23bdd0000012cc883e060df473f78b71530a6592e98&limit=1&filters[pincode]=";
-                    //String pincodeString = "324005"; // put the code string here
-                    String pincodeString = output_letters;
+                    String pincodeString = "324005"; // put the code string here
                     urlString += pincodeString;
-                    GET_URL = urlString;
-                    Log.e(TAG, "doInBackground: url is "+ GET_URL );
+                    Log.e(TAG, "doInBackground: url is "+ urlString );
                     String stringResponse = null;
+
                     try {
-                        URL obj = new URL(GET_URL);
-                        URLConnection urlConnection = obj.openConnection();
-                        HttpURLConnection con = (HttpURLConnection) urlConnection;
-                        con.setRequestMethod("GET");
-                        Log.e(TAG, "sendGET: I was here somewhere");
-                        con.connect();
-                        int responseCode = con.getResponseCode();
-                        Log.e(TAG, "sendGET: GET Response Code :: " + responseCode);
-                        if (responseCode == HttpURLConnection.HTTP_OK) { // success
-                            BufferedReader in = new BufferedReader(new InputStreamReader(
-                                    con.getInputStream()));
-                            String inputLine;
-                            StringBuffer stringBuffer = new StringBuffer();
 
-                            while ((inputLine = in.readLine()) != null) {
-                                stringBuffer.append(inputLine);
-                            }
-                            in.close();
-
-                            // print result
-                            stringResponse = stringBuffer.toString();
-                            //Log.e(TAG, "doInBackground: response is "+ stringResponse);
-                            Log.e(TAG, "doInBackground: response is "+ output_letters);
-                        } else {
-                            stringResponse = null;
-                        }
-                        JSONObject jsonResponse = new JSONObject(stringResponse);
-    /* Sample response that is expected, is
-    {"created":1495709719,"updated":1517201716,"title":"All India Pincode directory with contact details along with Latitude and  longitude","desc":"All India Pincode directory with contact details along with Latitude and  longitude","source":"data.gov.in","org_type":"Central","org":["Ministry of Communications and Information Technology","Department of Posts"],"sector":["Post","Information and Communications"],"visualizable":"0","index_name":"04cbe4b1-2f2b-4c39-a1d5-1c2e28bc0e32","catalog_uuid":"aed086e9-9ae6-42b8-a4c3-c481f8e9c436","status":"ok","message":"Resource detail","total":25,"count":1,"limit":"1","offset":"1","fields":[{"name":"officename","type":"keyword"},{"name":"pincode","type":"keyword"},{"name":"officetype","type":"keyword"},{"name":"deliverystatus","type":"keyword"},{"name":"divisionname","type":"keyword"},{"name":"regionname","type":"keyword"},{"name":"circlename","type":"keyword"},{"name":"taluk","type":"keyword"},{"name":"districtname","type":"keyword"},{"name":"statename","type":"keyword"},{"name":"telephone","type":"keyword"},{"name":"related_suboffice","type":"keyword"},{"name":"related_headoffice","type":"keyword"},{"name":"longitude","type":"keyword"},{"name":"latitude","type":"keyword"}],"records":[{"officename":"Bharapur Bhori B.O","pincode":"247667","officetype":"B.O directly a\/w Head Office","deliverystatus":"Delivery","divisionname":"Dehradun","regionname":"Dehradun","circlename":"Uttarakhand","taluk":"Roorkee","districtname":"Haridwar","statename":"UTTARAKHAND","telephone":"NA","related_suboffice":"NA","related_headoffice":"Roorkee H.O","longitude":"NA","latitude":"NA"}],"version":"2.0.0"}
-    */
-                        JSONArray jsonRecord = jsonResponse.getJSONArray("records");
-                        JSONObject resultRecord = jsonRecord.getJSONObject(0);
-                        String OfficeName = resultRecord.getString("officename");
-                        String Taluk = resultRecord.getString("taluk");
-                        String District = resultRecord.getString("districtname");
-                        String State = resultRecord.getString("statename");
-                        return District;
-//                        Toast.makeText(MainActivity.this, "I got address "+District+State, Toast.LENGTH_LONG).show();
+                        stringResponse = makePincodeRequest(pincodeString);
+                        Address address = new Address(stringResponse);
+                        Toast.makeText(MainActivity.this, "I got address: "+ address.toString(), Toast.LENGTH_LONG).show();
                     } catch (IOException e) {
                         e.printStackTrace();
                     } catch (JSONException e) {
                         e.printStackTrace();
                     }
-                    return output_letters;
+*/
 
                 } catch (GoogleJsonResponseException e) {
                     Log.d(TAG, "failed to make API request because " + e.getContent());
@@ -350,12 +260,127 @@ public class MainActivity extends AppCompatActivity {
         }.execute();
     }
 
+
+    private Vision.Images.Annotate createCloudVisionApiRequest(final Bitmap bitmap) throws IOException {
+        HttpTransport httpTransport = AndroidHttp.newCompatibleTransport();
+        JsonFactory jsonFactory = GsonFactory.getDefaultInstance();
+
+        VisionRequestInitializer requestInitializer =
+                new VisionRequestInitializer(CLOUD_VISION_API_KEY) {
+                    /**
+                     * We override this so we can inject important identifying fields into the HTTP
+                     * headers. This enables use of a restricted cloud platform API key.
+                     */
+                    @Override
+                    protected void initializeVisionRequest(VisionRequest<?> visionRequest)
+                            throws IOException {
+                        super.initializeVisionRequest(visionRequest);
+
+                        String packageName = getPackageName();
+                        visionRequest.getRequestHeaders().set(ANDROID_PACKAGE_HEADER, packageName);
+
+                        String sig = PackageManagerUtils.getSignature(getPackageManager(), packageName);
+
+                        visionRequest.getRequestHeaders().set(ANDROID_CERT_HEADER, sig);
+                    }
+                };
+
+        Vision.Builder builder = new Vision.Builder(httpTransport, jsonFactory, null);
+        builder.setVisionRequestInitializer(requestInitializer);
+
+        Vision vision = builder.build();
+
+        BatchAnnotateImagesRequest batchAnnotateImagesRequest =
+                new BatchAnnotateImagesRequest();
+        batchAnnotateImagesRequest.setRequests(new ArrayList<AnnotateImageRequest>() {{
+            AnnotateImageRequest annotateImageRequest = new AnnotateImageRequest();
+
+            // Add the image
+            Image base64EncodedImage = new Image();
+            // Convert the bitmap to a JPEG
+            // Just in case it's a format that Android understands but Cloud Vision
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, byteArrayOutputStream);
+            byte[] imageBytes = byteArrayOutputStream.toByteArray();
+
+            // Base64 encode the JPEG
+            base64EncodedImage.encodeContent(imageBytes);
+            annotateImageRequest.setImage(base64EncodedImage);
+
+            // add the features we want
+            annotateImageRequest.setFeatures(new ArrayList<Feature>() {{
+                Feature labelDetection = new Feature();
+                labelDetection.setType("DOCUMENT_TEXT_DETECTION");
+                labelDetection.setMaxResults(10);
+                add(labelDetection);
+            }});
+
+            // Add the list of one thing to the request
+            add(annotateImageRequest);
+        }});
+
+        Vision.Images.Annotate annotateRequest =
+                vision.images().annotate(batchAnnotateImagesRequest);
+        // Due to a bug: requests to Vision API containing large images fail when GZipped.
+        annotateRequest.setDisableGZipContent(true);
+
+        return annotateRequest;
+    }
+
     private String convertResponseToString(BatchAnnotateImagesResponse response) {
         String message = "I found these things:\n\n";
+        Log.i(TAG, "convertResponseToString: " + response.toString());
         List<EntityAnnotation> list = response.getResponses().get(0).getTextAnnotations();
-        message += list.get(0).getDescription();
+
+        if(list != null){
+            message += list.get(0).getDescription();
+        }
+        else {
+            Toast.makeText(getApplicationContext(),"Response Null", Toast.LENGTH_SHORT).show();
+        }
+
         return message;
     }
+
+    private String makePincodeRequest(String pincodeString) throws IOException {
+
+        String stringResponse;
+
+        String urlString = "https://api.data.gov.in/resource/04cbe4b1-2f2b-4c39-a1d5-1c2e28bc0e32?format=json&api-key=579b464db66ec23bdd0000012cc883e060df473f78b71530a6592e98&limit=1&filters[pincode]=";
+        urlString += pincodeString;
+        URL obj = new URL(urlString);
+        URLConnection urlConnection = obj.openConnection();
+        HttpURLConnection con = (HttpURLConnection) urlConnection;
+        con.setRequestMethod("GET");
+        Log.e(TAG, "sendGET: I was here somewhere");
+        con.connect();
+        int responseCode = con.getResponseCode();
+        Log.e(TAG, "sendGET: GET Response Code :: " + responseCode);
+
+
+        if (responseCode == HttpURLConnection.HTTP_OK) {
+
+            // success
+            BufferedReader in = new BufferedReader(new InputStreamReader(
+                    con.getInputStream()));
+            String inputLine;
+            StringBuffer stringBuffer = new StringBuffer();
+
+            while ((inputLine = in.readLine()) != null) {
+                stringBuffer.append(inputLine);
+            }
+            in.close();
+
+            // print result
+            stringResponse = stringBuffer.toString();
+            Log.e(TAG, "doInBackground: response is "+ stringResponse);
+        } else {
+            stringResponse = null;
+        }
+
+        return stringResponse;
+    }
+
 
 }
 
