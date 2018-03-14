@@ -15,6 +15,7 @@
  */
 
 package com.google.sample.cloudvision;
+
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Intent;
@@ -77,6 +78,7 @@ import java.net.URL;
 
 
 public class MainActivity extends AppCompatActivity {
+
     private static final String USER_AGENT = "Mozilla/5.0";
 
     private static String GET_URL = "";
@@ -127,9 +129,12 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+
         if (requestCode == CAMERA_IMAGE_REQUEST && resultCode == RESULT_OK) {
-            Bitmap image = (Bitmap) data.getExtras().get("data");
+            Bitmap image = (Bitmap) data.getExtras().get("data"); // Does not return optimal sized image!!
+            logBitmapSize(image);   //576x192
             uploadImage(image);
+
         }
         if (requestCode == RESULT_LOAD_IMAGE && resultCode == RESULT_OK && null != data) {
 
@@ -143,8 +148,14 @@ public class MainActivity extends AppCompatActivity {
             cursor.close();
             Bitmap bitmap = BitmapFactory.decodeFile(picturePath);
             mMainImage.setImageBitmap(bitmap);
+            logBitmapSize(bitmap);  //13824x4608
             uploadImage(bitmap);
         }
+    }
+
+    private void logBitmapSize(Bitmap image) {
+//        int size = *image.getHeight();
+        Log.i(TAG, "logBitmapSize: " + image.getRowBytes()+"  "+ image.getHeight());
     }
 
     @Override
@@ -347,6 +358,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 }
+
 class SendingSMS extends AsyncTask<String, Object, Void> {
 
     @Override
