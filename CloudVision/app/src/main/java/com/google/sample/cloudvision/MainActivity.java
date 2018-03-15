@@ -37,6 +37,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -97,13 +98,15 @@ public class MainActivity extends AppCompatActivity {
     public static final int CAMERA_IMAGE_REQUEST = 3;
     private static final String imagePath = Environment.getExternalStorageDirectory() + "/lastImage.jpg";
 
-    private TextView mImageDetails;
+    private EditText mImageDetails;
     private ImageView mMainImage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        String test = "Create " + "\n" + "Share" + "\n" + "OhBoi!";
+        Log.i(TAG, "onCreate: " + test.split("\n")[0] + " " + test.split("\n")[1] + " " + test.split("\n")[2] );
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
@@ -116,7 +119,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        mImageDetails = (TextView) findViewById(R.id.image_details);
+        mImageDetails = (EditText) findViewById(R.id.image_details);
         mMainImage = (ImageView) findViewById(R.id.main_image);
     }
 
@@ -208,7 +211,6 @@ public class MainActivity extends AppCompatActivity {
                 mMainImage.setImageBitmap(bitmap);
 
                 //Sending SMS disabled temporarily!
-//                new SendingSMS().execute("9529118708");
             } catch (IOException e) {
                 Log.d(TAG, "Image picking failed because " + e.getMessage());
                 Toast.makeText(this, R.string.image_picker_error, Toast.LENGTH_LONG).show();
@@ -369,16 +371,29 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private String convertResponseToString(BatchAnnotateImagesResponse response) {
-        String message = "I found these things:\n\n";
+        String message = "";
         Log.i(TAG, "convertResponseToString: " + response.toString());
         List<EntityAnnotation> list = response.getResponses().get(0).getTextAnnotations();
 
         if(list != null){
             message += list.get(0).getDescription();
+//            message=message.replaceAll("\\s", "");
+            message = removeSpaces(message);
         }
 
 
         return message;
+    }
+
+    private String removeSpaces(String message) {
+        char[] strArray = message.toCharArray();
+        StringBuffer stringBuffer = new StringBuffer();
+        for (int i = 0; i < strArray.length; i++) {
+            if ((strArray[i] != ' ') && (strArray[i] != '\t')) {
+                stringBuffer.append(strArray[i]);
+            }
+        }
+        return stringBuffer.toString();
     }
 
     private String makePincodeRequest(String pincodeString) throws IOException {
@@ -420,6 +435,26 @@ public class MainActivity extends AppCompatActivity {
         return stringResponse;
     }
 
+    private String makeSMS(String name, String address, String presentLocation){
+        String sms = "Hi! " + name + "\n \n" + "Your package heading to " + address + " has reached till "+
+                presentLocation + ". Expected waiting time is " + "3 days.";
+        return sms;
+    }
+
+    public void sendAlert(View view) {
+        String[] array = mImageDetails.getText().toString().split("\n");
+        String name = array[0];
+        String mobileNo = array[1];
+        String pincode = array[2];
+
+        String smsText = makeSMS(name,pincode, pincode);
+        new SendingSMS().execute(mobileNo, smsText);
+        Log.i(TAG, "sendAlert: " + name + " " + mobileNo + " " + pincode);
+
+
+
+    }
+
 
 }
 
@@ -434,12 +469,16 @@ class SendingSMS extends AsyncTask<String, Object, Void> {
             //Your authentication key
             String authkey = "d808a22243XX";
             //Multiple mobiles numbers separated by comma (max 200)
+
             String mobiles = "9529118708";
             mobiles = strings[0];
+
             //Sender ID,While using route4 sender id should be 6 characters  long.
-            String senderId = "MRWSHD";
+            String senderId = "HWRPRJ";
             //Your message to send, Add URL encoding here.
-            String message = "";
+
+            String message = strings[1];
+
             //define route
             String accusage="1";
 
@@ -450,7 +489,9 @@ class SendingSMS extends AsyncTask<String, Object, Void> {
                 int var=(otp[i]);
                 OTP+=(Math.pow(10,i/2))*(var);
             }
+/*
             message = "Thanks for your mail. Your post is heading to this address postal code " + Integer.toString(OTP) + " India's kamchor bank corporation";
+*/
 
             //Prepare Url
             URLConnection myURLConnection=null;
