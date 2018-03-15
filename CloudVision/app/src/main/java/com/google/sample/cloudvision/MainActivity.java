@@ -53,6 +53,7 @@ import com.google.api.services.vision.v1.model.BatchAnnotateImagesResponse;
 import com.google.api.services.vision.v1.model.EntityAnnotation;
 import com.google.api.services.vision.v1.model.Feature;
 import com.google.api.services.vision.v1.model.Image;
+import com.google.api.services.vision.v1.model.ImageContext;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -174,7 +175,9 @@ public class MainActivity extends AppCompatActivity {
             try {
                 callCloudVision(bitmap);
                 mMainImage.setImageBitmap(bitmap);
-                new SendingSMS().execute("9529118708");
+
+                //Sending SMS disabled temporarily!
+//                new SendingSMS().execute("9529118708");
             } catch (IOException e) {
                 Log.d(TAG, "Image picking failed because " + e.getMessage());
                 Toast.makeText(this, R.string.image_picker_error, Toast.LENGTH_LONG).show();
@@ -303,9 +306,15 @@ public class MainActivity extends AppCompatActivity {
             bitmap.compress(Bitmap.CompressFormat.JPEG, 90, byteArrayOutputStream);
             byte[] imageBytes = byteArrayOutputStream.toByteArray();
 
+            ImageContext imageContext = new ImageContext();
+            List<String> languageHints = new ArrayList<>();
+            languageHints.add("en");
+            imageContext.setLanguageHints(languageHints);
+
             // Base64 encode the JPEG
             base64EncodedImage.encodeContent(imageBytes);
             annotateImageRequest.setImage(base64EncodedImage);
+            annotateImageRequest.setImageContext(imageContext);
 
             // add the features we want
             annotateImageRequest.setFeatures(new ArrayList<Feature>() {{
