@@ -26,6 +26,8 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Environment;
+import android.os.StrictMode;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
@@ -60,7 +62,10 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URLConnection;
@@ -90,6 +95,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     public static final int CAMERA_PERMISSIONS_REQUEST = 2;
     public static final int CAMERA_IMAGE_REQUEST = 3;
+    private static final String imagePath = Environment.getExternalStorageDirectory() + "/lastImage.jpg";
 
     private TextView mImageDetails;
     private ImageView mMainImage;
@@ -100,7 +106,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-
+        StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
+        StrictMode.setVmPolicy(builder.build());
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -119,8 +126,13 @@ public class MainActivity extends AppCompatActivity {
                 CAMERA_PERMISSIONS_REQUEST,
                 Manifest.permission.READ_EXTERNAL_STORAGE,
                 Manifest.permission.CAMERA)) {
+
+            //Capture and Store the Image since we get only a thumbnail in Activity Result call!
+            File file = new File( imagePath );
+            Uri outputFileUri = Uri.fromFile( file );
             Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+//            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.putExtra( MediaStore.EXTRA_OUTPUT, outputFileUri );
             startActivityForResult(intent, CAMERA_IMAGE_REQUEST);
         }
     }
@@ -130,26 +142,45 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
 
         if (requestCode == CAMERA_IMAGE_REQUEST && resultCode == RESULT_OK) {
-            Bitmap image = (Bitmap) data.getExtras().get("data"); // Does not return optimal sized image!!
-            logBitmapSize(image);   //576x192
-            uploadImage(image);
+            /*Bitmap image = (Bitmap) data.getExtras().get("data"); // Does not return optimal sized image!!*/
+            File file = new File( imagePath );
+            Uri imageUri = Uri.fromFile( file );
+            Bitmap bitmap = null;
+            try {
+                bitmap = getBitmapFromUriCamera(imageUri);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
+            logBitmapSize(bitmap);
+
+            uploadImage(bitmap);
 
         }
         if (requestCode == RESULT_LOAD_IMAGE && resultCode == RESULT_OK && null != data) {
 
             Uri selectedImage = data.getData();
-            String[] filePathColumn = { MediaStore.Images.Media.DATA };
-            Cursor cursor = getContentResolver().query(selectedImage,filePathColumn, null, null, null);
-            cursor.moveToFirst();
-            int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
-            // a string variable which will store the path to the image in the gallery
-            String picturePath= cursor.getString(columnIndex);
-            cursor.close();
-            Bitmap bitmap = BitmapFactory.decodeFile(picturePath);
+            Bitmap bitmap = getBitmapFromUri(selectedImage);
             mMainImage.setImageBitmap(bitmap);
-            logBitmapSize(bitmap);  //13824x4608
+            logBitmapSize(bitmap);
             uploadImage(bitmap);
         }
+    }
+
+    private Bitmap getBitmapFromUri(Uri selectedImage) {
+        String[] filePathColumn = { MediaStore.Images.Media.DATA };
+        Cursor cursor = getContentResolver().query(selectedImage,filePathColumn, null, null, null);
+        cursor.moveToFirst();
+        int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
+        // a string variable which will store the path to the image in the gallery
+        String picturePath= cursor.getString(columnIndex);
+        cursor.close();
+        return BitmapFactory.decodeFile(picturePath);
+    }
+
+    private Bitmap getBitmapFromUriCamera(Uri selectedImage) throws FileNotFoundException {
+
+        InputStream inputStream = getContentResolver().openInputStream(selectedImage);
+        return BitmapFactory.decodeStream(inputStream);
     }
 
     private void logBitmapSize(Bitmap image) {
@@ -303,7 +334,8 @@ public class MainActivity extends AppCompatActivity {
             // Convert the bitmap to a JPEG
             // Just in case it's a format that Android understands but Cloud Vision
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, byteArrayOutputStream);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 50, byteArrayOutputStream);
+            logBitmapSize(bitmap);
             byte[] imageBytes = byteArrayOutputStream.toByteArray();
 
             ImageContext imageContext = new ImageContext();
@@ -344,9 +376,7 @@ public class MainActivity extends AppCompatActivity {
         if(list != null){
             message += list.get(0).getDescription();
         }
-        else {
-            Toast.makeText(getApplicationContext(),"Response Null", Toast.LENGTH_SHORT).show();
-        }
+
 
         return message;
     }
