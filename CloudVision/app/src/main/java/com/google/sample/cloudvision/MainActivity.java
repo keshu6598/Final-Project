@@ -18,27 +18,38 @@ package com.google.sample.cloudvision;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.location.Location;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.api.client.extensions.android.http.AndroidHttp;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.HttpTransport;
@@ -67,6 +78,7 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 
+import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 import static android.Manifest.permission.CAMERA;
 import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
 import java.net.HttpURLConnection;
@@ -79,7 +91,7 @@ import java.net.URL;
 public class MainActivity extends AppCompatActivity {
 
     private static final String USER_AGENT = "Mozilla/5.0";
-
+    private FusedLocationProviderClient mFusedLocationClient;
     private static final String CLOUD_VISION_API_KEY = "AIzaSyCkUW-AZ4z3ri8Y5_Dla7GF9OBL1lSTYPk";
     private static final String ANDROID_CERT_HEADER = "X-Android-Cert";
     private static final int RESULT_LOAD_IMAGE  = 100;
@@ -89,7 +101,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     public static final int CAMERA_PERMISSIONS_REQUEST = 2;
     public static final int CAMERA_IMAGE_REQUEST = 3;
-
+    final int REQUEST_ENABLE_LOCATION = 100;
     private TextView mImageDetails;
     private ImageView mMainImage;
 
@@ -110,6 +122,7 @@ public class MainActivity extends AppCompatActivity {
 
         mImageDetails = (TextView) findViewById(R.id.image_details);
         mMainImage = (ImageView) findViewById(R.id.main_image);
+        
     }
 
     public void startCamera() {
@@ -166,6 +179,7 @@ public class MainActivity extends AppCompatActivity {
                     startCamera();
                 }
                 break;
+
         }
     }
 
@@ -175,6 +189,25 @@ public class MainActivity extends AppCompatActivity {
                 callCloudVision(bitmap);
                 mMainImage.setImageBitmap(bitmap);
                 new SendingSMS().execute("9529118708");
+//                CheckPermission();
+//                LocationManager locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+//                GPSTracker gpsTracker =  new GPSTracker(this);
+//                Location location = gpsTracker.getCurrentLocation();
+//                Log.e(TAG, "uploadImage: current location things is "+ location );
+                mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+                mFusedLocationClient.getLastLocation()
+                        .addOnSuccessListener(this, new OnSuccessListener<Location>() {
+                            @Override
+                            public void onSuccess(Location location) {
+                                // Got last known location. In some rare situations this can be null.
+                                if (location != null) {
+                                    // Logic to handle location object
+//                                    Log.e(TAG, "onSuccess: Google knows everything "+ location.getLatitude() + location.getLongitude() );
+                                double lat = location.getLatitude();
+                                double log = location.getLongitude();
+                                }
+                            }
+                        });
             } catch (IOException e) {
                 Log.d(TAG, "Image picking failed because " + e.getMessage());
                 Toast.makeText(this, R.string.image_picker_error, Toast.LENGTH_LONG).show();
@@ -381,7 +414,50 @@ public class MainActivity extends AppCompatActivity {
         return stringResponse;
     }
 
+    public void CheckPermission()
+    {
+        if(!isLocationEnabled(getApplicationContext()))
+        {
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle("Location Settings").setMessage("Please Turn on Location Settings to proceed further.").setPositiveButton("Ok",new DialogInterface.OnClickListener(){
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
 
+                    Intent ii = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                    startActivityForResult(ii,REQUEST_ENABLE_LOCATION);
+
+                }
+            }).show();
+        }
+
+        //Runtime Permission
+        if(Build.VERSION.SDK_INT >= 23 && (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED))
+        {
+            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_ENABLE_LOCATION);
+        }
+
+    }
+    public static boolean isLocationEnabled(Context context) {
+        int locationMode = 0;
+        String locationProviders;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT){
+            try {
+                locationMode = Settings.Secure.getInt(context.getContentResolver(), Settings.Secure.LOCATION_MODE);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                return false;
+            }
+
+            return locationMode != Settings.Secure.LOCATION_MODE_OFF;
+
+        }else{
+            locationProviders = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.LOCATION_PROVIDERS_ALLOWED);
+            return !TextUtils.isEmpty(locationProviders);
+        }
+
+
+    }
 }
 
 class SendingSMS extends AsyncTask<String, Object, Void> {
