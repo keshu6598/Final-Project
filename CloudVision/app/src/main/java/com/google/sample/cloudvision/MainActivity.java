@@ -35,6 +35,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.telephony.SmsManager;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
@@ -97,7 +98,7 @@ public class MainActivity extends AppCompatActivity {
     public static final int CAMERA_PERMISSIONS_REQUEST = 2;
     public static final int CAMERA_IMAGE_REQUEST = 3;
     private static final String imagePath = Environment.getExternalStorageDirectory() + "/lastImage.jpg";
-
+    private static boolean canText = false;
     private EditText mImageDetails;
     private ImageView mMainImage;
 
@@ -105,6 +106,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.SEND_SMS},1);
         String test = "Create " + "\n" + "Share" + "\n" + "OhBoi!";
         Log.i(TAG, "onCreate: " + test.split("\n")[0] + " " + test.split("\n")[1] + " " + test.split("\n")[2] );
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
@@ -256,7 +258,7 @@ public class MainActivity extends AppCompatActivity {
 
                     BatchAnnotateImagesResponse response = annotateRequest.execute();
                     String output_letters = convertResponseToString(response);
-
+                    canText = true;
                     return output_letters;
 
 /*
@@ -437,28 +439,42 @@ public class MainActivity extends AppCompatActivity {
 
     private String makeSMS(String name, String address, String presentLocation){
         String sms = "Hi! " + name + "\n \n" + "Your package heading to " + address + " has reached till "+
-                presentLocation + ". Expected waiting time is " + "3 days.";
+                presentLocation + ". Expected waiting time before delivery is " + "3-4 days.";
         return sms;
     }
 
     public void sendAlert(View view) {
-        String[] array = mImageDetails.getText().toString().split("\n");
-        String name = array[0];
-        String mobileNo = array[1];
-        String pincode = array[2];
 
-        String smsText = makeSMS(name,pincode, pincode);
-        new SendingSMS().execute(mobileNo, smsText);
-        Log.i(TAG, "sendAlert: " + name + " " + mobileNo + " " + pincode);
+        if(canText){
+            String[] array = mImageDetails.getText().toString().split("\n");
+            String name = array[0];
+            String mobileNo = array[1];
+            String pincode = array[2];
 
+            String presentLocation = "Taluk Roorkee Post Box Office, Haridwar";
 
+            //replace the pincode below with api call for address!
+
+            String smsText = makeSMS(name,pincode, presentLocation);
+        /*new SendingSMS().execute(mobileNo, smsText);
+        */
+            Log.i(TAG, "sendAlert: " + name + " " + mobileNo + " " + pincode);
+            sendSMS(mobileNo,smsText);
+        }
+        else {
+            Toast.makeText(getApplicationContext(), "Response not received yet!", Toast.LENGTH_SHORT).show();
+        }
 
     }
 
+    private void sendSMS(String phoneNumber, String message) {
+        SmsManager sms = SmsManager.getDefault();
+        sms.sendTextMessage(phoneNumber, null, message, null, null);
+    }
 
 }
 
-class SendingSMS extends AsyncTask<String, Object, Void> {
+/*class SendingSMS extends AsyncTask<String, Object, Void> {
 
     @Override
     protected Void doInBackground(String... strings) {
@@ -489,9 +505,9 @@ class SendingSMS extends AsyncTask<String, Object, Void> {
                 int var=(otp[i]);
                 OTP+=(Math.pow(10,i/2))*(var);
             }
-/*
+
             message = "Thanks for your mail. Your post is heading to this address postal code " + Integer.toString(OTP) + " India's kamchor bank corporation";
-*/
+
 
             //Prepare Url
             URLConnection myURLConnection=null;
@@ -538,4 +554,4 @@ class SendingSMS extends AsyncTask<String, Object, Void> {
         }
         return null;
     }
-}
+}*/
