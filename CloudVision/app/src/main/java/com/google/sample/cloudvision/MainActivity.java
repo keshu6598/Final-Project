@@ -460,6 +460,7 @@ public class MainActivity extends AppCompatActivity {
         */
             Log.i(TAG, "sendAlert: " + name + " " + mobileNo + " " + pincode);
             sendSMS(mobileNo,smsText);
+            Toast.makeText(this,"SMS sent!",Toast.LENGTH_SHORT).show();
         }
         else {
             Toast.makeText(getApplicationContext(), "Response not received yet!", Toast.LENGTH_SHORT).show();
@@ -470,6 +471,7 @@ public class MainActivity extends AppCompatActivity {
     private void sendSMS(String phoneNumber, String message) {
         SmsManager sms = SmsManager.getDefault();
         sms.sendTextMessage(phoneNumber, null, message, null, null);
+
     }
 
 }
